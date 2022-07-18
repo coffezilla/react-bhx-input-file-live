@@ -1,22 +1,38 @@
-# This image run webpack sample and node for development
-# all files are running inside the container even the node_modules
-#
-# TIP 1: the node_modules folder will be empty in the local folder
-# TIP 2: if you want to install new dependencies like: npm install <new_dep>, you have to recreate the image
-# TIP 2: run bash from the the node image:
-# $ docker run -it --entrypoint /bin/bash <image_name>
+# FROM php:7.1-fpm
+FROM php:7.1.33-apache-buster
 
-# FROM node:14.18.1-buster
-FROM node:lts-alpine3.14
+# hostgator server
+# FROM php:7.3.28-zts-buster
 
-# add `/app/node_modules/.bin` to the $PATH
-ENV PATH /app/node_modules/.bin:$PATH
+RUN docker-php-ext-install mysqli pdo_mysql
+RUN a2enmod rewrite
 
-COPY /react-app/package.json /app/package.json
+WORKDIR /var/www/backend/
 
-WORKDIR /app
+# Wideimage
+RUN apt-get update -y && apt-get install -y sendmail libpng-dev
 
-RUN npm install
-RUN npm install -g react-scripts
+RUN apt-get install -y \
+    libwebp-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev libxpm-dev \
+    libfreetype6-dev
+RUN docker-php-ext-configure gd \
+    --with-gd \
+    --with-webp-dir \
+    --with-jpeg-dir \
+    --with-png-dir \
+    --with-zlib-dir \
+    --with-xpm-dir \
+    --with-freetype-dir \
+    --enable-gd-native-ttf
+RUN docker-php-ext-install gd
 
-CMD echo 'Image Builded - docker-react-backend'
+# sendmail
+RUN echo "sendmail_path=/usr/sbin/sendmail -t -i" >> /usr/local/etc/php/conf.d/sendmail.ini 
+
+RUN sed -i '/#!\/bin\/sh/aservice sendmail restart' /usr/local/bin/docker-php-entrypoint
+RUN sed -i '/#!\/bin\/sh/aecho "$(hostname -i)\t$(hostname) $(hostname).localhost" >> /etc/hosts' /usr/local/bin/docker-php-entrypoint
+
+# And clean up the image
+RUN rm -rf /var/lib/apt/lists/*
